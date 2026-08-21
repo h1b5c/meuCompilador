@@ -1,3 +1,7 @@
+#==================
+#OI FIFLIPE
+#==================
+
 programa = open("programa.txt", "r")
 
 transicoes = {
