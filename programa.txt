@@ -1,3 +1,5 @@
+//Programa em pascal
+
 program HelloWorld;
 begin
   writeln('Hello, World!');
