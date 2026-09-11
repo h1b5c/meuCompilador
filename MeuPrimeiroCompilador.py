@@ -1,5 +1,3 @@
-programa = open("programa.txt", "r")
-
 transicoes = {
         ("S0", "A"): "S1",
         ("S0", "B"): "S8",
@@ -469,170 +467,451 @@ estados_finais = {
 }
 
 Tabela = {
-        "palavra": [],
-        "linha": [],
-        "classe": [],
+    'palavra': [],
+    'linha': [],
+    'classe': [],
 }
 
+
 def adicionar_tabela(palavra, linha, classe):
-    Tabela["palavra"].append(palavra)
-    Tabela["linha"].append(linha)
-    Tabela["classe"].append(classe)
+
+    Tabela['palavra'].append(palavra)
+
+    Tabela['linha'].append(linha)
+
+    Tabela['classe'].append(classe)
+
 
 def classificar_palavra(palavra):
-        # PONTUAÇÃO
-        if palavra in [",", ";", ":", "(", ")", ".", "..", "[", "]", "{", "}"]:
-                return "P"
 
-        # ATRIBUIÇÃO
-        if palavra == ":=":
-                return "A"
+    # STRING
+    if len(palavra) >= 2 and palavra[0] == "'" and palavra[-1] == "'":
+        return 'L'
 
-        # SÍMBOLOS
-        if palavra in ["^", "+", "-", "*", "/", "=", ">", ">=", "<", "<=", "<>"]:
-                return "S"
+    # PONTUAÇÃO
+    if palavra in [',', ';', ':', '(', ')', '.', '..', '[', ']', '{', '}']:
+        return 'P'
 
-        retorno = "V"
+    # ATRIBUIÇÃO
+    if palavra == ':=':
+        return 'A'
 
-        # NÚMERO
-        if palavra[0] in "0123456789":
-                retorno = "N"
+    # SÍMBOLOS
+    if palavra in ['^', '+', '-', '*', '/', '=', '>', '>=', '<', '<=', '<>']:
+        return 'S'
 
-                for caractere in palavra:
-                        if caractere not in "0123456789":
-                                retorno = "E"
+    retorno = 'V'
 
-        else:
-                estado = "S0"
+    # NÚMERO
+    if palavra[0] in '0123456789':
 
-                for caractere in palavra:
+        retorno = 'N'
 
-                        if (estado, caractere) in transicoes:
-                                estado = transicoes[(estado, caractere)]
+        for caractere in palavra:
 
-                        else:
-                                # verifica se ainda pode ser variável
-                                for letra in palavra:
-                                        if letra not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
-                                                retorno = "E"
-                                break
+            if caractere not in '0123456789':
 
-                if estado in estados_finais:
-                        retorno = "R"
+                retorno = 'E'
 
-        return retorno
+                break
 
-def separar_tokens(linha):
+    else:
 
-        tokens = []
-        palavra = ""
-        i = 0
+        estado = 'S0'
 
-        while i < len(linha):
+        for caractere in palavra.upper():
 
-                caractere = linha[i]
+            if (estado, caractere) in transicoes:
 
-                # Espaço, tab ou quebra de linha
-                if caractere == " " or caractere == "\t" or caractere == "\n":
+                estado = transicoes[(estado, caractere)]
 
-                        if palavra != "":
-                                tokens.append(palavra)
-                                palavra = ""
+            else:
 
-                # Verifica símbolos com dois caracteres
-                elif caractere == ":":
+                # Verifica se pode ser uma variável
+                for letra in palavra:
 
-                        if palavra != "":
-                                tokens.append(palavra)
-                                palavra = ""
+                    if letra.upper() not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789':
 
-                        if i + 1 < len(linha) and linha[i + 1] == "=":
-                                tokens.append(":=")
-                                i += 1
-                        else:
-                                tokens.append(":")
+                        retorno = 'E'
 
-                elif caractere == "<":
+                        break
 
-                        if palavra != "":
-                                tokens.append(palavra)
-                                palavra = ""
+                break
 
-                        if i + 1 < len(linha):
-                                if linha[i + 1] == "=":
-                                        tokens.append("<=")
-                                        i += 1
+        # Verifica se chegou em uma palavra reservada
+        if estado in estados_finais:
 
-                                elif linha[i + 1] == ">":
-                                        tokens.append("<>")
-                                        i += 1
+            retorno = 'R'
 
-                                else:
-                                        tokens.append("<")
-                        else:
-                                tokens.append("<")
+    return retorno
 
-                elif caractere == ">":
 
-                        if palavra != "":
-                                tokens.append(palavra)
-                                palavra = ""
+def separar_tokens(linha, comentario):
 
-                        if i + 1 < len(linha) and linha[i + 1] == "=":
-                                tokens.append(">=")
-                                i += 1
-                        else:
-                                tokens.append(">")
+    tokens = []
 
-                elif caractere == ".":
+    palavra = ""
 
-                        if palavra != "":
-                                tokens.append(palavra)
-                                palavra = ""
+    i = 0
 
-                        if i + 1 < len(linha) and linha[i + 1] == ".":
-                                tokens.append("..")
-                                i += 1
-                        else:
-                                tokens.append(".")
+    while i < len(linha):
 
-                # Símbolos de um caractere
-                elif caractere in ",;^()[]{}+-*/=":
+        caractere = linha[i]
 
-                        if palavra != "":
-                                tokens.append(palavra)
-                                palavra = ""
 
-                        tokens.append(caractere)
+        # ==================================================
+        # ESTAMOS DENTRO DE UM COMENTÁRIO
+        # ==================================================
 
-                else:
+        if comentario:
 
-                        palavra += caractere
+            # Comentário do tipo { ... }
+
+            if caractere == '}':
+
+                comentario = False
+
+            # Comentário do tipo (* ... *)
+
+            elif caractere == '*' and i + 1 < len(linha) and linha[i + 1] == ')':
+
+                comentario = False
 
                 i += 1
 
-        # Se terminou a linha e ainda existe uma palavra
-        if palavra != "":
+            i += 1
+
+            continue
+
+
+        # ==================================================
+        # STRING
+        # ==================================================
+
+        if caractere == "'":
+
+            # Se já existe uma palavra antes da string
+            if palavra != "":
+
                 tokens.append(palavra)
-        return tokens
 
-cont = 1
+                palavra = ""
 
-for linha in programa.readlines():
-        linha = linha.upper()
+            palavra = "'"
 
-        tokens = separar_tokens(linha)
+            i += 1
+
+            # Lê tudo até encontrar a próxima aspas simples
+            while i < len(linha):
+
+                palavra += linha[i]
+
+                if linha[i] == "'":
+
+                    break
+
+                i += 1
+
+            # Se chegou no final sem encontrar '
+            if palavra[-1] != "'":
+
+                tokens.append(palavra)
+
+            else:
+
+                tokens.append(palavra)
+
+            palavra = ""
+
+            i += 1
+
+            continue
+
+
+        # ==================================================
+        # INÍCIO DE COMENTÁRIO
+        # ==================================================
+
+        # Comentário { ... }
+
+        if caractere == '{':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            comentario = True
+
+            i += 1
+
+            continue
+
+
+        # Comentário (* ... *)
+
+        if caractere == '(' and i + 1 < len(linha) and linha[i + 1] == '*':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            comentario = True
+
+            i += 2
+
+            continue
+
+
+        # ==================================================
+        # COMENTÁRIO DE UMA LINHA
+        # ==================================================
+
+        if caractere == '/' and i + 1 < len(linha) and linha[i + 1] == '/':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            # Tudo que vier depois será ignorado
+            break
+
+
+        # ==================================================
+        # ESPAÇO, TAB OU QUEBRA DE LINHA
+        # ==================================================
+
+        if caractere == ' ' or caractere == '\t' or caractere == '\n':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            i += 1
+
+            continue
+
+
+        # ==================================================
+        # SÍMBOLOS COM DOIS CARACTERES
+        # ==================================================
+
+        # :=
+
+        if caractere == ':':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            if i + 1 < len(linha) and linha[i + 1] == '=':
+
+                tokens.append(':=')
+
+                i += 2
+
+                continue
+
+            else:
+
+                tokens.append(':')
+
+                i += 1
+
+                continue
+
+
+        # <= ou <>
+
+        if caractere == '<':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            if i + 1 < len(linha):
+
+                if linha[i + 1] == '=':
+
+                    tokens.append('<=')
+
+                    i += 2
+
+                    continue
+
+                elif linha[i + 1] == '>': 
+
+                    tokens.append('<>')
+
+                    i += 2
+
+                    continue
+
+            tokens.append('<')
+
+            i += 1
+
+            continue
+
+
+        # >=
+
+        if caractere == '>':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            if i + 1 < len(linha) and linha[i + 1] == '=':
+
+                tokens.append('>=')
+
+                i += 2
+
+                continue
+
+            else:
+
+                tokens.append('>')
+
+                i += 1
+
+                continue
+
+
+        # ..
+
+        if caractere == '.':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            if i + 1 < len(linha) and linha[i + 1] == '.':
+
+                tokens.append('..')
+
+                i += 2
+
+                continue
+
+            else:
+
+                tokens.append('.')
+
+                i += 1
+
+                continue
+
+
+        # ==================================================
+        # SÍMBOLOS DE UM CARACTERE
+        # ==================================================
+
+        if caractere in ',;^()[]{}+-*/=':
+
+            if palavra != "":
+
+                tokens.append(palavra)
+
+                palavra = ""
+
+            tokens.append(caractere)
+
+            i += 1
+
+            continue
+
+
+        # ==================================================
+        # LETRAS / NÚMEROS
+        # ==================================================
+
+        palavra += caractere
+
+        i += 1
+
+
+    # Se terminou a linha e ainda existe uma palavra
+
+    if palavra != "":
+
+        tokens.append(palavra)
+
+
+    return tokens, comentario
+
+
+def classificador_lexico(programa):
+
+    if programa is None:
+
+        return -1
+
+    cont = 1
+
+    comentario = False
+
+    for linha in programa.readlines():
+
+        # NÃO usamos upper() aqui!
+        # Assim strings como 'Henrique' continuam iguais.
+
+        tokens, comentario = separar_tokens(linha, comentario)
 
         for palavra in tokens:
 
-                classe = classificar_palavra(palavra)
+            classe = classificar_palavra(palavra)
 
-                adicionar_tabela(palavra, cont, classe)
+            adicionar_tabela(palavra, cont, classe)
 
         cont += 1
 
-cabecalho = ("Palavra", "Linha", "Classe")
-print(f"{'%-28s' % cabecalho[0]} {'%-8s' % cabecalho[1]} {'%5s' % cabecalho[2]}")
-for i in range(len(Tabela["palavra"])):
-    print(f"{'%-30s' % Tabela['palavra'][i]} {'%-5s' %Tabela['linha'][i]} {'%5s' %Tabela['classe'][i]}")
+
+    # Se chegou ao final do arquivo ainda dentro de comentário
+    if comentario:
+
+        adicionar_tabela('COMENTARIO NAO FECHADO', cont - 1, 'E')
+
+
+def imprimir_tabela():
+
+    cabecalho = ('Palavra', 'Linha', 'Classe')
+
+    print(
+        f'{"%-28s" % cabecalho[0]} '
+        f'{"%-8s" % cabecalho[1]} '
+        f'{"%5s" % cabecalho[2]}'
+    )
+
+    for i in range(len(Tabela['palavra'])):
+
+        print(
+            f'{"%-30s" % Tabela["palavra"][i]} '
+            f'{"%-5s" % Tabela["linha"][i]} '
+            f'{"%5s" % Tabela["classe"][i]}'
+        )
+
+
+programa = open('programa.txt', 'r')
+
+classificador_lexico(programa)
+
 programa.close()
+
+imprimir_tabela()
